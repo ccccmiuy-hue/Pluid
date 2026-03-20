@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Organizador de Imagens</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+    body {
+        font-family: Arial;
+        text-align: center;
+        background: #111;
+        color: #fff;
+        padding: 20px;
+    }
+    input {
+        margin: 20px;
+    }
+    button {
+        padding: 10px 20px;
+        background: #00ff88;
+        border: none;
+        cursor: pointer;
+        font-weight: bold;
+    }
+    #preview img {
+        width: 100px;
+        margin: 5px;
+        border-radius: 5px;
+    }
+</style>
+</head>
+<body>
+
+<h1>📦 Organizar Imagens em ZIP</h1>
+
+<input type="file" id="images" multiple accept="image/*">
+
+<br>
+<button onclick="gerarZip()">Baixar ZIP</button>
+
+<div id="preview"></div>
+
+<script>
+let arquivos = [];
+
+document.getElementById("images").addEventListener("change", function(e) {
+    arquivos = Array.from(e.target.files);
+
+    let preview = document.getElementById("preview");
+    preview.innerHTML = "";
+
+    arquivos.forEach(file => {
+        let img = document.createElement("img");
+        img.src = URL.createObjectURL(file);
+        preview.appendChild(img);
+    });
+});
+
+async function gerarZip() {
+    if (arquivos.length === 0) {
+        alert("Selecione imagens primeiro!");
+        return;
+    }
+
+    let zip = new JSZip();
+
+    for (let i = 0; i < arquivos.length; i++) {
+        let file = arquivos[i];
+
+        let extensao = file.name.split('.').pop();
+        let nomeNovo = (i + 1) + "." + extensao;
+
+        let blob = await file.arrayBuffer();
+        zip.file(nomeNovo, blob);
+    }
+
+    zip.generateAsync({ type: "blob" }).then(function(content) {
+        let a = document.createElement("a");
+        a.href = URL.createObjectURL(content);
+        a.download = "imagens.zip";
+        a.click();
+    });
+}
+</script>
+
+</body>
+</html>

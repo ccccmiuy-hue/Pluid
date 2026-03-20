@@ -2,84 +2,95 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Organizador de Imagens</title>
+<title>PDF para Imagens</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
 <style>
-    body {
-        font-family: Arial;
-        text-align: center;
-        background: #111;
-        color: #fff;
-        padding: 20px;
-    }
-    input {
-        margin: 20px;
-    }
-    button {
-        padding: 10px 20px;
-        background: #00ff88;
-        border: none;
-        cursor: pointer;
-        font-weight: bold;
-    }
-    #preview img {
-        width: 100px;
-        margin: 5px;
-        border-radius: 5px;
-    }
+body {
+    background: #111;
+    color: #fff;
+    font-family: Arial;
+    text-align: center;
+    padding: 20px;
+}
+canvas {
+    width: 120px;
+    margin: 5px;
+}
+button {
+    padding: 10px 20px;
+    background: #00ff88;
+    border: none;
+    cursor: pointer;
+}
 </style>
 </head>
 <body>
 
-<h1>📦 Organizar Imagens em ZIP</h1>
+<h2>📄 PDF → Imagens (ZIP)</h2>
 
-<input type="file" id="images" multiple accept="image/*">
-
-<br>
-<button onclick="gerarZip()">Baixar ZIP</button>
+<input type="file" id="pdfFile" accept="application/pdf">
+<br><br>
+<button onclick="processarPDF()">Extrair Imagens</button>
+<button onclick="baixarZip()">Baixar ZIP</button>
 
 <div id="preview"></div>
 
 <script>
-let arquivos = [];
+let imagens = [];
 
-document.getElementById("images").addEventListener("change", function(e) {
-    arquivos = Array.from(e.target.files);
+async function processarPDF() {
+    const file = document.getElementById("pdfFile").files[0];
+    if (!file) return alert("Selecione um PDF!");
 
-    let preview = document.getElementById("preview");
-    preview.innerHTML = "";
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
 
-    arquivos.forEach(file => {
-        let img = document.createElement("img");
-        img.src = URL.createObjectURL(file);
-        preview.appendChild(img);
-    });
-});
+    imagens = [];
+    document.getElementById("preview").innerHTML = "";
 
-async function gerarZip() {
-    if (arquivos.length === 0) {
-        alert("Selecione imagens primeiro!");
+    for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const viewport = page.getViewport({ scale: 2 });
+
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+
+        await page.render({
+            canvasContext: ctx,
+            viewport: viewport
+        }).promise;
+
+        document.getElementById("preview").appendChild(canvas);
+
+        const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/jpeg", 0.95));
+        imagens.push(blob);
+    }
+}
+
+async function baixarZip() {
+    if (imagens.length === 0) {
+        alert("Extraia o PDF primeiro!");
         return;
     }
 
     let zip = new JSZip();
 
-    for (let i = 0; i < arquivos.length; i++) {
-        let file = arquivos[i];
-
-        let extensao = file.name.split('.').pop();
-        let nomeNovo = (i + 1) + "." + extensao;
-
-        let blob = await file.arrayBuffer();
-        zip.file(nomeNovo, blob);
-    }
-
-    zip.generateAsync({ type: "blob" }).then(function(content) {
-        let a = document.createElement("a");
-        a.href = URL.createObjectURL(content);
-        a.download = "imagens.zip";
-        a.click();
+    imagens.forEach((img, i) => {
+        zip.file((i+1) + ".jpg", img);
     });
+
+    const content = await zip.generateAsync({ type: "blob" });
+
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(content);
+    a.download = "imagens.zip";
+    a.click();
 }
 </script>
 
